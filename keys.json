@@ -18,4 +18,10 @@
         "active": true,
         "hwid": null
     }
+     "22": {
+        "user": "نسخة تجريبية",
+        "expiry": "2026-12-31",
+        "active": true,
+        "hwid": null
+    }
 }
