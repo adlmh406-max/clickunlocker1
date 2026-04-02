@@ -1,4 +1,4 @@
-# main.py - مع دعم ملف config خارجي
+# main.py - Click Unlocker Professional License System
 import requests
 import tkinter as tk
 from tkinter import messagebox
@@ -11,39 +11,20 @@ import threading
 import time
 import sys
 import hashlib
-import json
 
+# ============== الإعدادات ==============
+SERVER_URL = "https://clickunlocker1.onrender.com/verify-key"
 FILE_NAME = "clickunlocker.exe"
-CONFIG_FILE = "config.json"  # ملف الإعدادات الخارجي
 
-def load_server_url():
-    """تحميل رابط السيرفر من ملف خارجي"""
+# إخفاء نافذة CMD
+if platform.system() == "Windows":
     try:
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                url = config.get('server_url')
-                if url:
-                    return url
+        import ctypes
+        ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
     except:
         pass
-    
-    # الرابط الافتراضي (يتغير بعد الاستضافة)
-    return "https://your-app.onrender.com/verify-key"
 
-def save_server_url(url):
-    """حفظ رابط السيرفر في ملف خارجي"""
-    try:
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump({'server_url': url}, f, indent=4)
-        return True
-    except:
-        return False
-
-# تحميل الرابط
-SERVER_URL = load_server_url()
-
-# ============== باقي الكود كما هو ==============
+# ============== دوال النظام ==============
 def get_hwid():
     if platform.system() == "Windows":
         try:
@@ -62,8 +43,10 @@ def verify_key(key):
     try:
         response = requests.post(SERVER_URL, json={"key": key, "hwid": hwid}, timeout=10)
         return response.json()
-    except:
-        return {"status": "error"}
+    except requests.exceptions.ConnectionError:
+        return {"status": "error", "message": "Cannot connect to server"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 def launch_file():
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), FILE_NAME)
@@ -74,63 +57,24 @@ def launch_file():
         temp_dir = tempfile.mkdtemp(prefix="cl_")
         temp_file = os.path.join(temp_dir, FILE_NAME)
         shutil.copy2(file_path, temp_file)
-        os.startfile(temp_file)
-        threading.Thread(target=lambda: (time.sleep(5), shutil.rmtree(temp_dir, ignore_errors=True)), daemon=True).start()
+        
+        if platform.system() == "Windows":
+            os.startfile(temp_file)
+        else:
+            subprocess.Popen(["open", temp_file])
+        
+        def cleanup():
+            time.sleep(5)
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except:
+                pass
+        
+        threading.Thread(target=cleanup, daemon=True).start()
         return True
     except Exception as e:
-        messagebox.showerror("Error", f"Failed: {str(e)}")
+        messagebox.showerror("Error", f"Failed to launch: {str(e)}")
         return False
-
-def open_settings():
-    """نافذة إعدادات لتغيير رابط السيرفر"""
-    settings_window = tk.Toplevel(root)
-    settings_window.title("Settings")
-    settings_window.geometry("500x250")
-    settings_window.configure(bg="#000000")
-    settings_window.resizable(False, False)
-    
-    tk.Label(
-        settings_window,
-        text="Server URL",
-        font=("Segoe UI", 12, "bold"),
-        fg="#ff0000",
-        bg="#000000"
-    ).pack(pady=(20, 10))
-    
-    url_entry = tk.Entry(
-        settings_window,
-        font=("Consolas", 11),
-        width=45,
-        bg="#111111",
-        fg="#ffffff",
-        insertbackground="#ff0000",
-        relief="flat"
-    )
-    url_entry.pack(pady=10, ipady=8)
-    url_entry.insert(0, SERVER_URL)
-    
-    def save_settings():
-        new_url = url_entry.get().strip()
-        if save_server_url(new_url):
-            messagebox.showinfo("Success", "Settings saved!\nPlease restart the application.")
-            settings_window.destroy()
-        else:
-            messagebox.showerror("Error", "Failed to save settings")
-    
-    tk.Button(
-        settings_window,
-        text="SAVE",
-        font=("Segoe UI", 11, "bold"),
-        bg="#ff0000",
-        fg="#ffffff",
-        activebackground="#cc0000",
-        relief="flat",
-        cursor="hand2",
-        command=save_settings
-    ).pack(pady=20, ipady=5, ipadx=20)
-    
-    settings_window.transient(root)
-    settings_window.grab_set()
 
 def activate():
     key = key_entry.get().strip()
@@ -173,7 +117,7 @@ def process_result(result):
         activate_btn.config(state="normal", text="ACTIVATE")
     else:
         status_label.config(text="⚠ Server error", fg="#ffaa00")
-        messagebox.showerror("Error", "Cannot connect to license server!\nCheck your settings.")
+        messagebox.showerror("Error", "Cannot connect to license server!\nPlease check your internet connection.")
         activate_btn.config(state="normal", text="ACTIVATE")
 
 def cancel():
@@ -193,11 +137,11 @@ x = (root.winfo_screenwidth() // 2) - 310
 y = (root.winfo_screenheight() // 2) - 240
 root.geometry(f"620x480+{x}+{y}")
 
-# المحتوى
+# المحتوى الرئيسي
 main_frame = tk.Frame(root, bg="#000000")
 main_frame.pack(expand=True, fill="both", padx=0, pady=0)
 
-# عنوان
+# العنوان
 title = tk.Label(
     main_frame,
     text="CLICK UNLOCKER",
@@ -280,20 +224,6 @@ cancel_btn = tk.Button(
 )
 cancel_btn.pack(side="left", padx=10, ipady=8)
 
-# زر الإعدادات (ترس)
-settings_btn = tk.Button(
-    main_frame,
-    text="⚙️",
-    font=("Segoe UI", 14),
-    bg="#000000",
-    fg="#ff0000",
-    activebackground="#1a0000",
-    relief="flat",
-    cursor="hand2",
-    command=open_settings
-)
-settings_btn.place(x=560, y=10)
-
 # حالة التحقق
 status_label = tk.Label(
     main_frame,
@@ -318,9 +248,22 @@ footer.pack(side="bottom", pady=20)
 root.bind('<Return>', lambda e: activate())
 
 # تأثيرات hover
-activate_btn.bind("<Enter>", lambda e: activate_btn.config(bg="#cc0000"))
-activate_btn.bind("<Leave>", lambda e: activate_btn.config(bg="#ff0000"))
-cancel_btn.bind("<Enter>", lambda e: cancel_btn.config(fg="#ff3333"))
-cancel_btn.bind("<Leave>", lambda e: cancel_btn.config(fg="#ff0000"))
+def on_enter_activate(e):
+    activate_btn.config(bg="#cc0000")
 
+def on_leave_activate(e):
+    activate_btn.config(bg="#ff0000")
+
+def on_enter_cancel(e):
+    cancel_btn.config(fg="#ff3333")
+
+def on_leave_cancel(e):
+    cancel_btn.config(fg="#ff0000")
+
+activate_btn.bind("<Enter>", on_enter_activate)
+activate_btn.bind("<Leave>", on_leave_activate)
+cancel_btn.bind("<Enter>", on_enter_cancel)
+cancel_btn.bind("<Leave>", on_leave_cancel)
+
+# تشغيل التطبيق
 root.mainloop()
